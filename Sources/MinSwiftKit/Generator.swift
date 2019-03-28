@@ -34,7 +34,7 @@ private struct Generator<NodeType: Node>: GeneratorProtocol {
     func generate(with context: BuildContext) -> IRValue {
         fatalError("Not implemented")
     }
-
+    
     let node: NodeType
     init(node: NodeType) {
         self.node = node
@@ -45,37 +45,124 @@ private struct Generator<NodeType: Node>: GeneratorProtocol {
 
 extension Generator where NodeType == NumberNode {
     func generate(with context: BuildContext) -> IRValue {
-        fatalError("Not Implemented")
+        return FloatType.double.constant(node.value)
     }
 }
 
 extension Generator where NodeType == VariableNode {
     func generate(with context: BuildContext) -> IRValue {
-        fatalError("Not Implemented")
+        guard let variable = context.namedValues[node.identifier] else {
+            fatalError("Undefined variable named \(node.identifier)")
+        }
+        return variable
     }
 }
 
 extension Generator where NodeType == BinaryExpressionNode {
     func generate(with context: BuildContext) -> IRValue {
-        fatalError("Not Implemented")
+        switch node.operator {
+        case .addition:
+            return context.builder.buildAdd(generateIRValue(from: node.lhs, with: context),
+                                            generateIRValue(from: node.rhs, with: context),
+                                            name: "addtmp")
+        case .subtraction:
+            return context.builder.buildSub(generateIRValue(from: node.lhs, with: context),
+                                            generateIRValue(from: node.rhs, with: context),
+                                            name: "subtmp")
+        case .multication:
+            return context.builder.buildMul(generateIRValue(from: node.lhs, with: context),
+                                            generateIRValue(from: node.rhs, with: context),
+                                            name: "multmp")
+        case .division:
+            return context.builder.buildDiv(generateIRValue(from: node.lhs, with: context),
+                                            generateIRValue(from: node.rhs, with: context),
+                                            name: "divtmp")
+        case .lessThan:
+            
+            
+            let bool = context.builder.buildFCmp(generateIRValue(from: node.lhs, with: context),
+                                                 generateIRValue(from: node.rhs, with: context),
+                                                 RealPredicate.orderedLessThan,
+                                                 name: "cmptmp")
+            return context.builder.buildIntToFP(bool, type: FloatType.double, signed: true)
+        }
+        
     }
 }
 
 extension Generator where NodeType == FunctionNode {
     func generate(with context: BuildContext) -> IRValue {
-        fatalError("Not Implemented")
+        let argumentTypes = [IRType](repeating: FloatType.double, count: node.arguments.count)
+        let returnType: IRType = FloatType.double
+        let functionType = FunctionType(argTypes: argumentTypes,
+                                        returnType: returnType)
+        let function = context.builder.addFunction(node.name, type: functionType)
+        
+        let entryBasicBlock = function.appendBasicBlock(named: "entry")
+        context.builder.positionAtEnd(of: entryBasicBlock)
+        
+        context.namedValues.removeAll()
+        for i in (0 ..< node.arguments.count) {
+            context.namedValues[node.arguments[i].variableName] = function.parameters[i]
+        }
+    
+        let functionBody: IRValue = generateIRValue(from: node.body, with: context)
+        context.builder.buildRet(functionBody)
+        return functionBody
     }
 }
 
 extension Generator where NodeType == CallExpressionNode {
     func generate(with context: BuildContext) -> IRValue {
-        fatalError("Not Implemented")
+        guard let function = context.builder.module.function(named: node.callee) else {
+            fatalError("can not get function")
+        }
+        var arguments: [IRValue] = []
+        node.arguments.forEach { (argument) in
+            let value: IRValue = generateIRValue(from: argument.value, with: context)
+            arguments.append(value)
+        }
+        return context.builder.buildCall(function, args: arguments, name: "calltmp")
     }
 }
 
 extension Generator where NodeType == IfElseNode {
     func generate(with context: BuildContext) -> IRValue {
-        fatalError("Not Implemented")
+        let condition: IRValue = generateIRValue(from: node.condition, with: context)
+        
+        let boolean = context.builder.buildFCmp(condition,
+                                                FloatType.double.constant(0.0),
+                                                RealPredicate.orderedNotEqual,
+                                                name: "ifcond")
+        
+        guard let function = context.builder.insertBlock?.parent! else {
+            fatalError("function is nil")
+        }
+        
+        let local = context.builder.buildAlloca(type: FloatType.double, name: "local")
+        
+        let thenBasicBlock = function.appendBasicBlock(named: "then")
+        let elseBasicBlock = function.appendBasicBlock(named: "else")
+        let mergeBasicBlock = function.appendBasicBlock(named: "merge")
+        
+        context.builder.buildCondBr(condition: boolean, then: thenBasicBlock, else: elseBasicBlock)
+        context.builder.positionAtEnd(of: thenBasicBlock)
+        
+        let thenVal: IRValue = generateIRValue(from: node.then, with: context)
+        context.builder.buildBr(mergeBasicBlock)
+        
+        context.builder.positionAtEnd(of: elseBasicBlock)
+        
+        let elseVal: IRValue = generateIRValue(from: node.else!, with: context)
+        context.builder.buildBr(mergeBasicBlock)
+        
+        context.builder.positionAtEnd(of: mergeBasicBlock)
+        
+        let phi = context.builder.buildPhi(FloatType.double, name: "phi")
+        phi.addIncoming([(thenVal, thenBasicBlock), (elseVal, elseBasicBlock)])
+        context.builder.buildStore(phi, to: local)
+        
+        return phi
     }
 }
 

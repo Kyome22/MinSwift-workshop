@@ -57,7 +57,7 @@ class Practice5: ParserTestCase {
     }
 
     // If you have a rest time, try them.
-    func _testFunctionCallingWithLiteralArguments() {
+    func testFunctionCallingWithLiteralArguments() {
         load("doSomething(10)") // identifier, leftParen, <some expression> , rightParen
 
         let node = parser.parseIdentifierExpression()
@@ -72,7 +72,7 @@ class Practice5: ParserTestCase {
         XCTAssertEqual(parser.currentToken.tokenKind, .eof)
     }
 
-    func _testFunctionCallingWithVariableArguments() {
+    func testFunctionCallingWithVariableArguments() {
         load("doSomething(a)") // identifier, leftParen, <some expression> , rightParen
 
         let node = parser.parseIdentifierExpression()

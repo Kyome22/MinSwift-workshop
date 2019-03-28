@@ -17,10 +17,10 @@ class Practice4: ParserTestCase {
     // 4-2
     func testSimpleFunctionDefinition() {
         load("""
-func calculate() -> Double {
-    return 1 + 2
-}
-""")
+        func calculate() -> Double {
+            return 1 + 2
+        }
+        """)
         // funcKeyword -> identifier("calculate") -> leftParen -> rightParen
         // -> arrow -> identifier("Double") -> leftBrace
         // -> returnKeyword -> integerLiteral("1") -> binaryOperator("+")
@@ -69,7 +69,7 @@ func square(a: Double) -> Double {
     // 4-4
     func testFunctionWithArguments() {
         load("""
-func calculate(a: Double, b: Double) -> Double {
+func calculate(a: Double, _ b: Double, ccc c: Double) -> Double {
     return a * b
 }
 """)
@@ -79,17 +79,19 @@ func calculate(a: Double, b: Double) -> Double {
         let function = node as! FunctionNode
         XCTAssertEqual(function.name, "calculate")
         XCTAssertEqual(function.returnType, .double)
-        XCTAssertEqual(function.arguments.count, 2)
+        XCTAssertEqual(function.arguments.count, 3)
 
         XCTAssertEqual(function.arguments[0].label, "a")
         XCTAssertEqual(function.arguments[0].variableName, "a")
-        XCTAssertEqual(function.arguments[1].label, "b")
+        XCTAssertEqual(function.arguments[1].label, nil)
         XCTAssertEqual(function.arguments[1].variableName, "b")
+        XCTAssertEqual(function.arguments[2].label, "ccc")
+        XCTAssertEqual(function.arguments[2].variableName, "c")
         XCTAssertEqual(parser.currentToken.tokenKind, .eof)
     }
 
     // If you have a rest time, try them.
-    func _testParsingArgumentWithLabel() {
+    func testParsingArgumentWithLabel() {
         load("label a: Double")
 
         let argument = parser.parseFunctionDefinitionArgument()
@@ -97,7 +99,7 @@ func calculate(a: Double, b: Double) -> Double {
         XCTAssertEqual(argument.variableName, "a")
     }
 
-    func _testParsingArgumentWithWildcard() {
+    func testParsingArgumentWithWildcard() {
         load("_ a: Double")
 
         let argument = parser.parseFunctionDefinitionArgument()
